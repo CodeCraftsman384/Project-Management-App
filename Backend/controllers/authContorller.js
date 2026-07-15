@@ -16,19 +16,25 @@ const registerNewUser = async(req,res)=>{
         }
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(req.body.password,salt);
-
+        let role = "Member";
+        if(req.body.AdminInviteToken == process.env.ADMIN_INVITE_TOKEN){
+            role = "Admin"
+        }
         const newUser  =new UserModel({
             name : req.body.name,
             email : req.body.email,
             password : hashedPassword,
             profileImageUrl : req.body.profileImageUrl,
-            role : req.body.role
+            role : role
         });
         await newUser.save();
+        const token = jwt.sign({
+            _id : newUser._id
+        },process.env.JWT_SECRET_KEY,{expiresIn : "3d"});
         return res.status(200).json({
             success : true,
             message : "User registered successfully",
-            newUser
+            token
         })
     }catch(e){
         console.log("Error -> ",e);
@@ -40,30 +46,39 @@ const registerNewUser = async(req,res)=>{
 }
 
 const loginUser = async(req,res)=>{
-    const {email,password} = req.body;
-    const user = await UserModel.findOne({email : email});
-    if(!user){
-        return res.statuS(201).json({
+    try{
+        const {email,password} = req.body;
+        const user = await UserModel.findOne({email : email});
+        if(!user){
+            return res.statuS(201).json({
+                    success : false,
+                    message : "User is not registered, kindly sign up"
+            })
+        }
+        const result = await bcrypt.compare(password,user.password);
+        console.log(result);
+        if(!result){
+            return res.statuS(201).json({
+                    success : false,
+                    message : "Password is incorrect"
+            })
+        }
+        //result is true
+        const token = jwt.sign({
+            _id : user._id
+        },process.env.JWT_SECRET_KEY,{expiresIn : "3d"});
+        return res.status(200).json({
+                success : true,
+                message : "Logged in",
+                token : token
+        })
+    }catch(e){
+        console.log("Error -> ",e);
+            return res.status(500).json({
                 success : false,
-                message : "User is not registered, kindly sign up"
+                message : "Something went wrong"
         })
     }
-    const result = await bcrypt.compare(password,user.password);
-    if(!result){
-        return res.statuS(201).json({
-                success : false,
-                message : "Password is incorrect"
-        })
-    }
-    //result is true
-    const token = jwt.sign({
-        _id : user._id
-    },process.env.JWT_SECRET_KEY,{expiresIn : "3d"});
-    return res.status(200).json({
-            success : true,
-            message : "Logged in",
-            token : token
-    })
 }
 
 const getUserDetails = async(req,res)=>{
@@ -102,6 +117,11 @@ const changeUserInfo = async(req,res)=>{
         User.email = req.body.email || User.email;
         User.profileImageUrl = req.body.profileImageUrl || User.profileImageUrl;
         await User.save();
+        return res.status(201).json({
+            success : true,
+            message : "Info changed successfully",
+            User
+        })
     }catch(e){
         console.log("Error -> ",e);
         return res.status(500).json({
@@ -110,4 +130,4 @@ const changeUserInfo = async(req,res)=>{
         })
     }
 };
-module.exports = {registerNewUser,loginUser};
+module.exports = {registerNewUser,loginUser,getUserDetails,changeUserInfo};
