@@ -27,7 +27,7 @@ const TaskSchema = new mongoose.Schema({
         type : mongoose.Schema.Types.ObjectId,
         ref : 'UserModel'
     },
-    todoCheckList : {ToDoSchema},
+    todoCheckList : [ToDoSchema],
     attachment : [{type : String}],
     progress : {type : Number, default : 0}
 },{timestamps : true})
